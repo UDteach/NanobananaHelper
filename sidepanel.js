@@ -271,15 +271,40 @@ function onTaskComplete(hasImages, imageCount) {
     const current = processingQueue[currentFileIndex];
     const fileItem = document.querySelector(`.file-item[data-index="${current.index}"]`);
 
+    if (!hasImages) {
+        // Stop processing on failure
+        isAutoProcessing = false;
+        startAutoBtn.style.display = 'block';
+        stopAutoBtn.style.display = 'none';
+        selectFolderBtn.disabled = false;
+
+        statusEl.textContent = `Error: Failed to download image for ${current.entry.name}. Stopped.`;
+        statusEl.style.color = 'red';
+
+        if (fileItem) {
+            fileItem.classList.remove('processing');
+            fileItem.classList.add('error'); // Add error styling if you have it, or just leave as is
+            fileItem.querySelector('.status-icon').textContent = '❌';
+        }
+
+        // Notify content script to stop watching
+        chrome.tabs.query({ active: true, lastFocusedWindow: true }, ([tab]) => {
+            if (tab) {
+                chrome.tabs.sendMessage(tab.id, { action: 'STOP_AUTO_PROCESS' });
+            }
+        });
+        return;
+    }
+
     // Mark as completed
     if (fileItem) {
         fileItem.classList.remove('processing');
         fileItem.classList.add('completed');
-        const icon = hasImages ? `✅ (${imageCount} img)` : '✅';
+        const icon = `✅ (${imageCount} img)`;
         fileItem.querySelector('.status-icon').textContent = icon;
     }
 
-    statusEl.textContent = `Completed: ${current.entry.name}` + (hasImages ? ` (${imageCount} images downloaded)` : '');
+    statusEl.textContent = `Completed: ${current.entry.name} (${imageCount} images downloaded)`;
 
     currentFileIndex++;
     updateProgress();

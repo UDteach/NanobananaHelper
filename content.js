@@ -388,8 +388,8 @@ async function handleResponseComplete() {
         console.log('Download verified complete.');
         notifyTaskComplete(true, 1);
     } else {
-        console.warn('Download timed out or failed, but continuing sequence.');
-        notifyTaskComplete(true, 1); // Mark as complete anyway to avoid stalling forever
+        console.error('Download timed out or failed. Stopping auto-process.');
+        notifyTaskComplete(false, 0); // Report failure
     }
 }
 
