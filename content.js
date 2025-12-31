@@ -364,17 +364,58 @@ function startResponseWatcher() {
     }, 1000);
 }
 
-function handleResponseComplete() {
+async function handleResponseComplete() {
     console.log('Handling response complete...');
 
-    // Download any images found
+    // Notify background we expect a download
+    await chrome.runtime.sendMessage({ action: 'EXPECT_DOWNLOAD' });
+
+    // Click the download button
     const result = downloadAllImages();
-    const hasImages = result.count > 0;
 
-    console.log(`Found ${result.count} images.`);
+    if (result.count === 0) {
+        console.log('No images found to download.');
+        notifyTaskComplete(false, 0);
+        return;
+    }
 
-    // Notify sidepanel
-    notifyTaskComplete(hasImages, result.count);
+    console.log(`Clicked download button. Waiting for completion...`);
+
+    // Wait for the download to actually complete
+    const success = await waitForDownloadCompletion();
+
+    if (success) {
+        console.log('Download verified complete.');
+        notifyTaskComplete(true, 1);
+    } else {
+        console.warn('Download timed out or failed, but continuing sequence.');
+        notifyTaskComplete(true, 1); // Mark as complete anyway to avoid stalling forever
+    }
+}
+
+function waitForDownloadCompletion() {
+    return new Promise(resolve => {
+        const startTime = Date.now();
+        const maxWaitTime = 30000; // 30 seconds max wait
+
+        const checkInterval = setInterval(() => {
+            chrome.runtime.sendMessage({ action: 'CHECK_DOWNLOAD_STATUS' }, (response) => {
+                const elapsed = Date.now() - startTime;
+
+                if (response.status === 'complete') {
+                    clearInterval(checkInterval);
+                    resolve(true);
+                } else if (response.status === 'error' || response.status === 'timeout') {
+                    clearInterval(checkInterval);
+                    resolve(false);
+                } else if (elapsed > maxWaitTime) {
+                    clearInterval(checkInterval);
+                    console.log('Client-side download wait timeout');
+                    resolve(false);
+                }
+            });
+        }, 1000);
+    });
 }
 
 function notifyTaskComplete(hasImages, imageCount) {
