@@ -316,7 +316,7 @@ function onTaskComplete(hasImages, imageCount) {
                             setTimeout(() => {
                                 console.log('Sending RETRY_DOWNLOAD command...');
                                 chrome.tabs.sendMessage(tabId, { action: 'RETRY_DOWNLOAD' });
-                            }, 1000);
+                            }, 5000); // Increased wait time to 5 seconds
                         });
                     }
                 };

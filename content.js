@@ -376,10 +376,23 @@ async function handleResponseComplete() {
     await chrome.runtime.sendMessage({ action: 'EXPECT_DOWNLOAD' });
 
     // Click the download button
-    const result = downloadAllImages();
+    let result = downloadAllImages();
+
+    // If no buttons found, wait a bit and try again (UI might be loading after reload)
+    if (result.count === 0) {
+        console.log('No images found initially. Waiting for UI to render...');
+        await sleep(2000);
+        result = downloadAllImages();
+
+        // Still not found? Try one more time with longer wait
+        if (result.count === 0) {
+            await sleep(3000);
+            result = downloadAllImages();
+        }
+    }
 
     if (result.count === 0) {
-        console.log('No images found to download.');
+        console.log('No images found to download after waiting.');
         notifyTaskComplete(false, 0);
         return;
     }
