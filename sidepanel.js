@@ -3,6 +3,7 @@ let fileEntries = [];
 let processingQueue = [];
 let isAutoProcessing = false;
 let currentFileIndex = -1;
+let currentRetryCount = 0;
 
 // DOM Elements
 const selectFolderBtn = document.getElementById('select-folder');
@@ -272,18 +273,70 @@ function onTaskComplete(hasImages, imageCount) {
     const fileItem = document.querySelector(`.file-item[data-index="${current.index}"]`);
 
     if (!hasImages) {
-        // Stop processing on failure
+        // Retry logic
+        if (currentRetryCount < 1) {
+            console.log(`Retry attempt for ${current.entry.name}`);
+            currentRetryCount++;
+
+            statusEl.textContent = `Download failed. Reloading and retrying...`;
+            statusEl.style.color = 'orange';
+
+            if (fileItem) {
+                // User requested: "× → Reload → Check" visual style
+                fileItem.querySelector('.status-icon').textContent = '❌ 🔄';
+            }
+
+            // Perform reload and then signal content script to re-initiate
+            chrome.tabs.query({ active: true, lastFocusedWindow: true }, ([tab]) => {
+                if (!tab) return;
+                const tabId = tab.id;
+
+                // 1. Reload the page
+                chrome.tabs.reload(tabId, { bypassCache: true });
+
+                // 2. Wait for reload to complete
+                const listener = (tId, changeInfo, t) => {
+                    if (tId === tabId && changeInfo.status === 'complete') {
+                        chrome.tabs.onUpdated.removeListener(listener);
+
+                        console.log('Reload complete. Re-injecting content script...');
+
+                        // 3. Re-inject content script
+                        chrome.scripting.executeScript({
+                            target: { tabId: tabId },
+                            files: ['content.js']
+                        }, () => {
+                            if (chrome.runtime.lastError) {
+                                console.error('Script injection failed:', chrome.runtime.lastError);
+                                onTaskComplete(false, 0); // Fail if injection fails
+                                return;
+                            }
+
+                            // 4. Trigger retry after a short delay to ensure script is ready
+                            setTimeout(() => {
+                                console.log('Sending RETRY_DOWNLOAD command...');
+                                chrome.tabs.sendMessage(tabId, { action: 'RETRY_DOWNLOAD' });
+                            }, 1000);
+                        });
+                    }
+                };
+                chrome.tabs.onUpdated.addListener(listener);
+            });
+            return;
+        }
+
+        // Stop processing on failure after retry
         isAutoProcessing = false;
         startAutoBtn.style.display = 'block';
         stopAutoBtn.style.display = 'none';
         selectFolderBtn.disabled = false;
 
-        statusEl.textContent = `Error: Failed to download image for ${current.entry.name}. Stopped.`;
+        statusEl.textContent = `Error: Failed to download image for ${current.entry.name}. Stopped after retry.`;
         statusEl.style.color = 'red';
 
         if (fileItem) {
             fileItem.classList.remove('processing');
-            fileItem.classList.add('error'); // Add error styling if you have it, or just leave as is
+            fileItem.classList.add('error');
             fileItem.querySelector('.status-icon').textContent = '❌';
         }
 
@@ -293,8 +346,12 @@ function onTaskComplete(hasImages, imageCount) {
                 chrome.tabs.sendMessage(tab.id, { action: 'STOP_AUTO_PROCESS' });
             }
         });
+        currentRetryCount = 0; // Reset retry count
         return;
     }
+
+    // Success - reset retry count
+    currentRetryCount = 0;
 
     // Mark as completed
     if (fileItem) {

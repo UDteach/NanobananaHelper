@@ -33,6 +33,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     } else if (request.action === 'STOP_AUTO_PROCESS') {
         isAutoMode = false;
         sendResponse({ status: 'stopped' });
+    } else if (request.action === 'RETRY_DOWNLOAD') {
+        isAutoMode = true; // Ensure auto mode is on so notification works
+        console.log('Retrying download...');
+        handleResponseComplete();
+        sendResponse({ status: 'retrying' });
     }
     return true; // Keep message channel open for async response
 });
