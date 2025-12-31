@@ -228,35 +228,29 @@ function downloadAllImages() {
         return { count: 0 };
     }
 
-    let downloadCount = 0;
+    // Only target the LATEST image (last button in the DOM) to avoid re-downloading old images
+    const button = downloadButtons[downloadButtons.length - 1];
 
-    downloadButtons.forEach((button, index) => {
-        // Create unique identifier for this button based on its position in DOM
-        const container = button.closest('.image-container') || button.parentElement;
-        const img = container ? container.querySelector('img') : null;
-        const buttonId = img ? img.src : `button-${index}`;
-        const normalizedId = normalizeImageUrl(buttonId);
+    // Create unique identifier for this button based on its position in DOM
+    const container = button.closest('.image-container') || button.parentElement;
+    const img = container ? container.querySelector('img') : null;
+    const buttonId = img ? img.src : `button-${downloadButtons.length - 1}`;
+    const normalizedId = normalizeImageUrl(buttonId);
 
-        // Skip if already clicked
-        if (clickedDownloadButtons.has(normalizedId)) {
-            console.log(`Skipping already downloaded: ${normalizedId.substring(0, 50)}...`);
-            return;
-        }
+    // Skip if already clicked
+    if (clickedDownloadButtons.has(normalizedId)) {
+        console.log(`Skipping already downloaded: ${normalizedId.substring(0, 50)}...`);
+        return { count: 0 };
+    }
 
-        // Mark as clicked
-        clickedDownloadButtons.add(normalizedId);
+    // Mark as clicked
+    clickedDownloadButtons.add(normalizedId);
 
-        // Click the download button with a small delay between clicks
-        setTimeout(() => {
-            console.log(`Clicking download button ${index + 1}...`);
-            button.click();
-        }, index * 500);
+    console.log('Clicking download button for latest image...');
+    button.click();
 
-        downloadCount++;
-    });
-
-    console.log(`Clicked ${downloadCount} download buttons.`);
-    return { count: downloadCount };
+    console.log('Clicked 1 download button (latest image).');
+    return { count: 1 };
 }
 
 function normalizeImageUrl(url) {
