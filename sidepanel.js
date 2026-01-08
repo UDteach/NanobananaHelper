@@ -273,17 +273,17 @@ function onTaskComplete(hasImages, imageCount) {
     const fileItem = document.querySelector(`.file-item[data-index="${current.index}"]`);
 
     if (!hasImages) {
-        // Retry logic
-        if (currentRetryCount < 1) {
-            console.log(`Retry attempt for ${current.entry.name}`);
+        // Retry logic - allow up to 4 retries
+        if (currentRetryCount < 4) {
             currentRetryCount++;
+            console.log(`Retry attempt ${currentRetryCount}/4 for ${current.entry.name}`);
 
-            statusEl.textContent = `Download failed. Reloading and retrying...`;
+            statusEl.textContent = `Download failed. Reloading and retrying (${currentRetryCount}/4)...`;
             statusEl.style.color = 'orange';
 
             if (fileItem) {
                 // User requested: "× → Reload → Check" visual style
-                fileItem.querySelector('.status-icon').textContent = '❌ 🔄';
+                fileItem.querySelector('.status-icon').textContent = `❌ 🔄 (${currentRetryCount}/4)`;
             }
 
             // Perform reload and then signal content script to re-initiate
@@ -331,7 +331,7 @@ function onTaskComplete(hasImages, imageCount) {
         stopAutoBtn.style.display = 'none';
         selectFolderBtn.disabled = false;
 
-        statusEl.textContent = `Error: Failed to download image for ${current.entry.name}. Stopped after retry.`;
+        statusEl.textContent = `Error: Failed to download image for ${current.entry.name}. Stopped after 4 retries.`;
         statusEl.style.color = 'red';
 
         if (fileItem) {
